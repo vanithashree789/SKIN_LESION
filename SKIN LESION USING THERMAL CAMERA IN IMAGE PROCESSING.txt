@@ -1,0 +1,104 @@
+% Load the input image
+img = imread('dataset1.jpeg');
+
+% Define the brightness level
+brightness_level = 50;
+
+% Brighten the image
+brightened_img = imadjust(img, [brightness_level/255, 1], []);
+
+% Split the image into its color channels
+red_channel = brightened_img(:,:,1);
+green_channel = brightened_img(:,:,2);
+blue_channel = brightened_img(:,:,3);
+
+% Apply median filter to each channel
+filtered_red = medfilt2(red_channel, [3 3]);
+filtered_green = medfilt2(green_channel, [3 3]);
+filtered_blue = medfilt2(blue_channel, [3 3]);
+
+% Combine the filtered channels back into a color image
+filtered_img = cat(3, filtered_red, filtered_green, filtered_blue);
+
+% Create a rectangular ROI object
+figure;
+subplot(2,2,1);
+imshow(img);
+title('Input Image');
+subplot(2,2,2);
+imshow(brightened_img);
+title('Brightened Image');
+subplot(2,2,3);
+imshow(filtered_img);
+title('Filtered Image');
+subplot(2,2,4);
+imshow(filtered_img);
+title('Filtered Image with ROI');
+roi_handle = imrect(gca);
+% Wait for the user to finish selecting the ROI
+wait(roi_handle);
+% Get the position of the ROI
+roi_position = getPosition(roi_handle);
+
+% Crop the image to the ROI
+cropped_img = imcrop(filtered_img, roi_position);
+
+% Convert the cropped image to the HSV color space
+hsv = rgb2hsv(cropped_img);
+
+% Extract the Hue, Saturation, and Value channels
+h = hsv(:,:,1);
+s = hsv(:,:,2);
+v = hsv(:,:,3);
+
+% Threshold the Hue channel to identify red colors
+red_mask = h > 0.9 | h < 0.1;
+
+% Apply morphological operations to the binary mask
+se = strel('disk', 5);
+red_mask = imclose(red_mask, se);
+
+% Define the white color threshold values
+rThresh = 240;
+gThresh = 240;
+bThresh = 240;
+
+% Create a binary image with all pixels set to 1
+binary_img = ones(size(red_mask));
+
+% Subtract the red_mask from the binary image
+white_mask = binary_img - red_mask;
+
+% Compute the perimeter of the white region
+perim = bwperim(white_mask);
+
+% Estimate the length of the white region using the perimeter
+length = sum(perim(:));
+
+% Calculate the level of redness
+num_red_pixels = sum(red_mask(:));
+total_pixels = numel(red_mask);
+redness_level = (num_red_pixels / total_pixels) * 100; % Convert to percentage
+
+% Display the cropped image and the binary masks for the red and white regions
+figure;
+subplot(2,2,1);
+imshow(cropped_img);
+title('Cropped Image');
+set(gca, 'XTickLabel', []);
+set(gca, 'YTickLabel', []);
+
+subplot(2,2,2);
+imshow(red_mask);
+title('Binary Mask for Red Region');
+set(gca, 'XTickLabel', []);
+set(gca, 'YTickLabel', []);
+
+subplot(2,2,3);
+imshow(white_mask);
+title('Binary Mask for White Region');
+set(gca, 'XTickLabel', []);
+set(gca, 'YTickLabel', []);
+
+% Display the redness value in the output
+disp(['Redness Level: ' num2str(redness_level) '%']);
